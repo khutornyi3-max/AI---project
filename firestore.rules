@@ -1,0 +1,167 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    function isValidMapList(items, maxLen) {
+      return items is list
+        && items.size() <= maxLen
+        && (items.size() == 0 || items[0] is map);
+    }
+
+    function isValidUserPrivateProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'photoURL', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'email', 'photoURL', 'createdAt', 'updatedAt'])
+        && data.uid is string && data.uid == request.auth.uid && data.uid == userId && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() <= 120
+        && data.email is string && data.email.size() <= 254
+        && data.photoURL is string && data.photoURL.size() <= 500
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidDecision(data) {
+      return data.keys().hasAll([
+          'ownerId',
+          'title',
+          'context',
+          'options',
+          'prosCons',
+          'comparisonCriteria',
+          'swot',
+          'aiTakeaway',
+          'tiebreakerQuestion',
+          'challenges',
+          'chosenOptionId',
+          'activeFramework',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId',
+          'title',
+          'context',
+          'options',
+          'prosCons',
+          'comparisonCriteria',
+          'swot',
+          'aiTakeaway',
+          'tiebreakerQuestion',
+          'challenges',
+          'chosenOptionId',
+          'activeFramework',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.ownerId is string && data.ownerId == request.auth.uid && isValidId(data.ownerId)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.context is string && data.context.size() <= 2000
+        && isValidMapList(data.options, 4)
+        && isValidMapList(data.prosCons, 4)
+        && isValidMapList(data.comparisonCriteria, 15)
+        && isValidMapList(data.swot, 4)
+        && data.aiTakeaway is string && data.aiTakeaway.size() <= 1500
+        && data.tiebreakerQuestion is string && data.tiebreakerQuestion.size() <= 500
+        && isValidMapList(data.challenges, 20)
+        && data.chosenOptionId is string && data.chosenOptionId.size() <= 128
+        && data.activeFramework is string
+        && data.activeFramework.size() <= 20
+        && data.activeFramework in ['pros-cons', 'comparison', 'swot', 'chat']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    match /users/{userId}/private/{docId} {
+      allow get: if isOwner(userId) && isValidId(userId) && isValidId(docId);
+      allow list: if false;
+      allow create: if isOwner(userId)
+        && isValidId(userId)
+        && isValidId(docId)
+        && docId == 'profile'
+        && isValidUserPrivateProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isOwner(userId)
+        && isValidId(userId)
+        && isValidId(docId)
+        && docId == 'profile'
+        && isValidUserPrivateProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'photoURL', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /decisions/{decisionId} {
+      allow get: if isVerifiedUser()
+        && isValidId(decisionId)
+        && existing().ownerId == request.auth.uid;
+      allow list: if isVerifiedUser()
+        && existing().ownerId == request.auth.uid;
+      allow create: if isVerifiedUser()
+        && isValidId(decisionId)
+        && isValidDecision(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(decisionId)
+        && isValidDecision(incoming())
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action: Switch active framework tab
+          incoming().diff(existing()).affectedKeys().hasOnly(['activeFramework', 'updatedAt']) ||
+          // Action: Record or clear final decision choice
+          incoming().diff(existing()).affectedKeys().hasOnly(['chosenOptionId', 'updatedAt']) ||
+          // Action: Edit decision analysis content
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'title',
+            'context',
+            'options',
+            'prosCons',
+            'comparisonCriteria',
+            'swot',
+            'aiTakeaway',
+            'tiebreakerQuestion',
+            'challenges',
+            'chosenOptionId',
+            'activeFramework',
+            'updatedAt'
+          ])
+        );
+      allow delete: if isVerifiedUser()
+        && isValidId(decisionId)
+        && existing().ownerId == request.auth.uid;
+    }
+  }
+}

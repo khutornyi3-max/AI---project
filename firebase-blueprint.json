@@ -1,0 +1,147 @@
+{
+  "entities": {
+    "UserPrivateProfile": {
+      "title": "UserPrivateProfile",
+      "description": "Private PII profile for a Google-authenticated user of The Tiebreaker.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the owner."
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Display name from Google account."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 254,
+          "description": "Verified email address from Google account."
+        },
+        "photoURL": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Google profile avatar URL."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the profile was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the latest sign-in or profile sync."
+        }
+      },
+      "required": ["uid", "displayName", "email", "photoURL", "createdAt", "updatedAt"]
+    },
+    "DecisionDocument": {
+      "title": "DecisionDocument",
+      "description": "A user-owned structured decision analysis containing options, pros/cons, weighted criteria, SWOT, and AI challenges.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Immutable Firebase Auth UID of the decision owner."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Decision title."
+        },
+        "context": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Background context, constraints, and goals."
+        },
+        "options": {
+          "type": "array",
+          "description": "Up to 4 decision options."
+        },
+        "prosCons": {
+          "type": "array",
+          "description": "Weighted pros and cons per option (up to 4 entries)."
+        },
+        "comparisonCriteria": {
+          "type": "array",
+          "description": "Up to 15 weighted comparison criteria."
+        },
+        "swot": {
+          "type": "array",
+          "description": "SWOT analysis per option (up to 4 entries)."
+        },
+        "aiTakeaway": {
+          "type": "string",
+          "maxLength": 1500,
+          "description": "Synthesized summary of the core trade-off."
+        },
+        "tiebreakerQuestion": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Decisive question to break a deadlock."
+        },
+        "challenges": {
+          "type": "array",
+          "description": "Up to 20 AI stress-test insight entries."
+        },
+        "chosenOptionId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "ID of the selected final option, or empty string if still open."
+        },
+        "activeFramework": {
+          "type": "string",
+          "enum": ["pros-cons", "comparison", "swot", "chat"],
+          "maxLength": 20,
+          "description": "Currently selected analysis tab."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Immutable server timestamp when the decision was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the latest update."
+        }
+      },
+      "required": [
+        "ownerId",
+        "title",
+        "context",
+        "options",
+        "prosCons",
+        "comparisonCriteria",
+        "swot",
+        "aiTakeaway",
+        "tiebreakerQuestion",
+        "challenges",
+        "chosenOptionId",
+        "activeFramework",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/private/{docId}": {
+      "schema": { "$ref": "#/entities/UserPrivateProfile" },
+      "description": "Private PII profile isolated per Google-authenticated user."
+    },
+    "/decisions/{decisionId}": {
+      "schema": { "$ref": "#/entities/DecisionDocument" },
+      "description": "Private user-owned decision analyses synchronized across devices."
+    }
+  }
+}

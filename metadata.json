@@ -1,0 +1,8 @@
+{
+  "name": "The Tiebreaker",
+  "description": "AI-powered decision workbench for weighing choices through interactive pros and cons lists, weighted comparison tables, and SWOT analyses.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
